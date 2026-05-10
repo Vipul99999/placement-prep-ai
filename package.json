@@ -1,0 +1,42 @@
+{
+  "name": "placement-prep-ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test:e2e": "playwright test",
+    "test:unit": "node --experimental-strip-types tests/run-unit-tests.ts",
+    "test:api": "node --experimental-strip-types tests/run-api-tests.ts",
+    "worker": "node --experimental-strip-types scripts/worker.ts",
+    "health:runtime": "node --experimental-strip-types scripts/runtime-health.ts"
+  },
+  "dependencies": {
+    "@auth/mongodb-adapter": "^3.11.2",
+    "bcryptjs": "^3.0.3",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
+    "mammoth": "^1.12.0",
+    "mongodb": "^6.17.0",
+    "next": "^15.5.15",
+    "next-auth": "^4.24.14",
+    "nodemailer": "^7.0.13",
+    "pdf-parse": "^2.4.5",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "@types/nodemailer": "^8.0.0",
+    "@types/react": "^19.0.12",
+    "@types/react-dom": "^19.0.5",
+    "autoprefixer": "^10.4.21",
+    "playwright": "^1.59.1",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.3"
+  }
+}

@@ -2,6 +2,11 @@ import { ObjectId } from "mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { preparePrepInputForAI } from "@/lib/ai-safety";
 import { invalidateCache, withCache } from "@/lib/cache";
+import {
+  recordPrepPackCreationUsage,
+  releaseQuestionGenerationBudget,
+  reserveQuestionGenerationBudget
+} from "@/lib/cost-controls";
 import { getDb } from "@/lib/mongodb";
 import { analyzeInput, generateQuestionsForCategory, generateRoadmap } from "@/lib/gemini";
 import { createJDHash } from "@/lib/hash";
@@ -174,6 +179,7 @@ export async function createPrepPack(input: PrepInput, userId: string) {
     analysis,
     difficulty: enrichedInput.difficulty
   });
+  await recordPrepPackCreationUsage(userId);
 
   await logAuditEvent({
     actorUserId: userId,
@@ -195,6 +201,7 @@ export async function createPrepPack(input: PrepInput, userId: string) {
 
 async function runCategoryGeneration(args: {
   prepPackId: ObjectId;
+  userId: string;
   prepPack: PrepInput;
   analysis: AnalysisResult;
   category: RecommendedCategory;
@@ -228,17 +235,24 @@ async function runCategoryGeneration(args: {
   let generatedIds: ObjectId[] = [];
 
   if (missingCount > 0) {
-    const generated = await generateQuestionsForCategory({
-      companyName: args.prepPack.companyName,
-      role: args.prepPack.role,
-      category: args.category,
-      analysis: args.analysis,
-      preparationDays: args.prepPack.preparationDays,
-      difficulty: args.difficulty,
-      count: missingCount,
-      resumeText: args.prepPack.resumeText,
-      projectHighlights: args.prepPack.projectHighlights
-    });
+    await reserveQuestionGenerationBudget(args.userId, missingCount);
+    let generated: Awaited<ReturnType<typeof generateQuestionsForCategory>>;
+    try {
+      generated = await generateQuestionsForCategory({
+        companyName: args.prepPack.companyName,
+        role: args.prepPack.role,
+        category: args.category,
+        analysis: args.analysis,
+        preparationDays: args.prepPack.preparationDays,
+        difficulty: args.difficulty,
+        count: missingCount,
+        resumeText: args.prepPack.resumeText,
+        projectHighlights: args.prepPack.projectHighlights
+      });
+    } catch (error) {
+      await releaseQuestionGenerationBudget(args.userId, missingCount);
+      throw error;
+    }
 
     generatedIds = await insertUniqueQuestions(
       generated.questions.map((question) => ({
@@ -269,6 +283,7 @@ async function runCategoryGeneration(args: {
 
 export async function hydrateCategory(args: {
   prepPackId: ObjectId;
+  userId: string;
   prepPack: PrepInput;
   analysis: AnalysisResult;
   category: RecommendedCategory;
@@ -412,6 +427,7 @@ export async function processPrepPackGenerationJobs(args: {
     try {
       const result = await runCategoryGeneration({
         prepPackId: prepObjectId,
+        userId: args.userId,
         prepPack: {
           companyName: prepPack.companyName,
           role: prepPack.role,
@@ -444,7 +460,12 @@ export async function processPrepPackGenerationJobs(args: {
     } catch (error) {
       const attemptCount = Number(job.attemptCount ?? 1);
       const maxAttempts = Number(job.maxAttempts ?? 3);
-      const shouldRetry = attemptCount < maxAttempts;
+      const isBudgetLimitError =
+        error instanceof Error &&
+        (error.message.includes("Daily AI question-generation limit reached") ||
+          error.message.includes("Daily detailed-answer limit reached") ||
+          error.message.includes("Daily prep-pack limit reached"));
+      const shouldRetry = !isBudgetLimitError && attemptCount < maxAttempts;
       const retryDelayMs = Math.min(60_000, 5_000 * Math.pow(2, Math.max(0, attemptCount - 1)));
       await db.collection("generationJobs").updateOne(
         { _id: job._id },
@@ -617,17 +638,70 @@ export async function getPrepPackQuestions(args: {
   };
 }
 
-export async function listPrepPacks(userId: string) {
-  return withCache(`prep-list:${userId}`, 15_000, async () => {
-    const db = await getDb();
-    const packs = await db
-      .collection("prepPacks")
-      .find({ userId })
-      .sort({ createdAt: -1 })
-      .limit(12)
-      .toArray();
+export async function listPrepPacks(
+  userId: string,
+  options?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+  }
+) {
+  const page = options?.page ?? 1;
+  const limit = options?.limit ?? 12;
+  const skip = (page - 1) * limit;
+  const search = options?.search?.trim();
+  const status = options?.status?.trim();
+  const allowedStatuses = new Set(["draft", "generating", "completed", "failed"]);
+  if (status && !allowedStatuses.has(status)) {
+    throw new Error("Invalid prep-pack status filter");
+  }
 
-    return packs.map((pack) => serializeDocument(pack));
+  const cacheKey = `prep-list:${userId}:${page}:${limit}:${search ?? ""}:${status ?? ""}`;
+  return withCache(cacheKey, 15_000, async () => {
+    const db = await getDb();
+    const filter: Record<string, unknown> = { userId };
+    if (status) {
+      filter.status = status;
+    }
+    if (search) {
+      filter.$or = [
+        { companyName: { $regex: search, $options: "i" } },
+        { role: { $regex: search, $options: "i" } }
+      ];
+    }
+
+    const [packs, total] = await Promise.all([
+      db
+        .collection("prepPacks")
+        .find(filter, {
+          projection: {
+            userId: 1,
+            companyName: 1,
+            role: 1,
+            experienceLevel: 1,
+            preparationDays: 1,
+            difficulty: 1,
+            status: 1,
+            totalQuestions: 1,
+            createdAt: 1,
+            updatedAt: 1
+          }
+        })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+      db.collection("prepPacks").countDocuments(filter)
+    ]);
+
+    return {
+      items: packs.map((pack) => serializeDocument(pack)),
+      page,
+      limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / limit))
+    };
   });
 }
 

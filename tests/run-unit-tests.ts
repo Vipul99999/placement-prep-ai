@@ -6,7 +6,14 @@ import {
   sanitizeQuestionPayload
 } from "../lib/ai-safety.ts";
 import { getPasswordStrength } from "../lib/password.ts";
-import { validateEmail, validatePassword, validatePrepInput, validateQuestionStateInput } from "../lib/validators.ts";
+import {
+  validateEmail,
+  validateGenerationInput,
+  validatePassword,
+  validatePrepInput,
+  validateQuestionStateInput,
+  validateUserPreferencesInput
+} from "../lib/validators.ts";
 
 type UnitCase = {
   name: string;
@@ -147,6 +154,36 @@ const cases: UnitCase[] = [
     run: () => {
       const payload = sanitizeDetailedAnswerPayload({ answerDetailed: "```prompt leak```" });
       assert.match(payload.answerDetailed, /Focus on the core concept/);
+    }
+  },
+  {
+    name: "validateGenerationInput normalizes category requests",
+    run: () => {
+      const result = validateGenerationInput({
+        category: " React ",
+        count: 12.8,
+        difficulty: "Advanced"
+      });
+
+      assert.equal(result.category, "React");
+      assert.equal(result.count, 12);
+      assert.equal(result.difficulty, "Advanced");
+    }
+  },
+  {
+    name: "validateUserPreferencesInput enforces sensible defaults",
+    run: () => {
+      const result = validateUserPreferencesInput({
+        defaultPreparationDays: 15,
+        defaultDifficulty: "Mixed",
+        weeklyGoalSessions: 5,
+        emailProductUpdates: true,
+        emailStudyReminders: false
+      });
+
+      assert.equal(result.defaultPreparationDays, 15);
+      assert.equal(result.weeklyGoalSessions, 5);
+      assert.equal(result.emailProductUpdates, true);
     }
   },
   {

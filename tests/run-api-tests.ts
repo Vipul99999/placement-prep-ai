@@ -95,6 +95,12 @@ async function main() {
     assert.match(prepQuestionsPayload.error, /Invalid prep pack id/);
     console.log("PASS prep questions route rejects invalid prep-pack id");
 
+    const prepPacksInvalidStatus = await fetch(`${baseUrl}/api/prep-packs?status=not-real-status`);
+    const prepPacksInvalidStatusPayload = await prepPacksInvalidStatus.json();
+    assert.equal(prepPacksInvalidStatus.status, 401);
+    assert.equal(prepPacksInvalidStatusPayload.error, "Unauthorized");
+    console.log("PASS prep-packs route requires auth before applying filters");
+
     const detailedAnswer = await fetch(`${baseUrl}/api/questions/not-an-id/generate-detailed-answer`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -118,7 +124,7 @@ async function main() {
     assert.equal(internalCronPayload.error, "Unauthorized cron request");
     console.log("PASS internal cron route rejects unauthorized requests");
 
-    console.log("Completed 6 API checks successfully.");
+    console.log("Completed 7 API checks successfully.");
   } finally {
     server.kill();
   }

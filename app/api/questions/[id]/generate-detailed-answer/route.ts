@@ -1,6 +1,7 @@
 import { ObjectId } from "mongodb";
 import { NextRequest, NextResponse } from "next/server";
 import { requireVerifiedUserSession } from "@/lib/auth";
+import { releaseDetailedAnswerBudget, reserveDetailedAnswerBudget } from "@/lib/cost-controls";
 import { generateDetailedAnswer } from "@/lib/gemini";
 import { getDb } from "@/lib/mongodb";
 import { enforceRateLimit } from "@/lib/rate-limit";
@@ -49,13 +50,20 @@ export async function POST(
       return NextResponse.json({ answerDetailed: question.answerDetailed });
     }
 
-    const generated = await generateDetailedAnswer({
-      question: question.question,
-      answerShort: question.answerShort,
-      category: body.category,
-      role: body.role,
-      companyName: body.companyName
-    });
+    await reserveDetailedAnswerBudget(session.user.id);
+    let generated: Awaited<ReturnType<typeof generateDetailedAnswer>>;
+    try {
+      generated = await generateDetailedAnswer({
+        question: question.question,
+        answerShort: question.answerShort,
+        category: body.category,
+        role: body.role,
+        companyName: body.companyName
+      });
+    } catch (error) {
+      await releaseDetailedAnswerBudget(session.user.id);
+      throw error;
+    }
 
     await db.collection("questions").updateOne(
       { _id: new ObjectId(id) },
@@ -81,6 +89,8 @@ export async function POST(
             : error instanceof Error && error.message === "Email verification required"
               ? 403
               : error instanceof Error && error.message.includes("Too many requests")
+                ? 429
+              : error instanceof Error && error.message.includes("Daily ")
                 ? 429
             : error instanceof Error && error.message.startsWith("Invalid ")
               ? 400

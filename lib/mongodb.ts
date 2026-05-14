@@ -123,6 +123,10 @@ async function ensureIndexes() {
       db.collection("productFeedback").createIndexes([
         { key: { userId: 1, createdAt: -1 }, name: "feedback_user_created_idx" },
         { key: { sentiment: 1, createdAt: -1 }, name: "feedback_sentiment_created_idx" }
+      ]),
+      db.collection("aiUsageDaily").createIndexes([
+        { key: { userId: 1, dateKey: 1 }, name: "aiUsage_user_day_unique", unique: true },
+        { key: { expiresAt: 1 }, name: "aiUsage_expiry_idx", expireAfterSeconds: 0 }
       ])
     ]);
   })();

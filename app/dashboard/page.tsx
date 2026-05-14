@@ -37,11 +37,14 @@ export default async function DashboardPage() {
   };
 
   try {
-    [packs, analytics, onboarding] = await Promise.all([
+    const [packResult, analyticsResult, onboardingResult] = await Promise.all([
       listPrepPacks(session.user.id),
       getDashboardAnalytics(session.user.id),
       getOnboardingState(session.user.id)
     ]);
+    packs = packResult.items;
+    analytics = analyticsResult;
+    onboarding = onboardingResult;
   } catch (pageError) {
     error = pageError instanceof Error ? pageError.message : "Unable to load prep packs";
   }

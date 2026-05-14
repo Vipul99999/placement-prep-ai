@@ -54,7 +54,7 @@ Optional storage for full JDs keyed by hash. `prepPacks` only keeps `jobDescript
 ## API Routes
 
 - `POST /api/analyze`
-- `GET /api/prep-packs`
+- `GET /api/prep-packs?page=1&limit=12&search=React&status=completed`
 - `POST /api/prep-packs`
 - `GET /api/prep-packs/[id]`
 - `DELETE /api/prep-packs/[id]`
@@ -85,7 +85,7 @@ Optional storage for full JDs keyed by hash. `prepPacks` only keeps `jobDescript
 
 1. Install dependencies.
 2. Copy `.env.example` to `.env.local`.
-3. Fill in `MONGODB_URI`, `MONGODB_DB`, `GEMINI_API_KEY`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, SMTP settings, and `ADMIN_EMAILS`.
+3. Fill in `MONGODB_URI`, `MONGODB_DB`, `GEMINI_API_KEY`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, SMTP settings, `ADMIN_EMAILS`, and the daily AI budget envs if you want non-default limits.
 4. Run `npm run dev`.
 5. Run `npm run test:unit`, `npm run test:api`, and `npm run test:e2e` for verification.
 
@@ -120,6 +120,7 @@ Optional storage for full JDs keyed by hash. `prepPacks` only keeps `jobDescript
 - AI input is sanitized before prompting, and unsafe or off-purpose generated output is filtered before storage.
 - Question quality is bounded over time, duplicate generation jobs are deduplicated, and cached views are invalidated more consistently after writes.
 - `/create` is intentionally explorable without hard middleware redirect, but actual generation still requires authenticated and verified API access.
+- Daily AI budgets protect against runaway Gemini usage by limiting prep-pack creation, question generation, and detailed-answer expansion per user.
 
 ## Privacy Controls
 
@@ -133,6 +134,7 @@ Optional storage for full JDs keyed by hash. `prepPacks` only keeps `jobDescript
 - Account preferences save default prep duration, difficulty, and communication preferences.
 - A help center gives public FAQ access, while signed-in users can send support tickets directly in-app.
 - Feedback collection is built into the product so roadmap decisions can follow real user friction and delight signals.
+- Prep-pack list reads now support server-side pagination and filtering for better scale as user history grows.
 
 ## Testing
 

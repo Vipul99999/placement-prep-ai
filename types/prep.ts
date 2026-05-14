@@ -11,7 +11,7 @@ export type CategoryType =
 export type Importance = "high" | "medium" | "low";
 export type PracticeStatus = "not_started" | "learning" | "mastered";
 export type GenerationStatus = "pending" | "running" | "completed" | "failed";
-export type QuestionFeedback = "helpful" | "irrelevant" | "too_easy" | "too_repetitive";
+export type QuestionFeedback = "helpful" | "irrelevant" | "too_easy" | "too_repetitive" | "inaccurate";
 
 export interface PrepInput {
   companyName: string;
@@ -64,6 +64,10 @@ export interface StoredQuestion {
   question: string;
   answerShort: string;
   answerDetailed?: string;
+  interviewerIntent?: string;
+  answerOpening?: string;
+  answerFramework?: string[];
+  revisionChecklist?: string[];
   example?: string;
   followUps: string[];
   commonMistakes: string[];
@@ -112,6 +116,7 @@ export interface PrepPackDetail extends PrepPackSummary {
   categoryPlan: RecommendedCategory[];
   roadmap: RoadmapDay[];
   jobDescriptionPreview: string;
+  generationHealth?: "healthy" | "partial_failure";
   resumeFileName?: string;
   projectHighlights?: string[];
   categorySummary: CategorySummary[];

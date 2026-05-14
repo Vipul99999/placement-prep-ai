@@ -10,6 +10,7 @@ import type { PrepPackDetail } from "@/types/prep";
 
 export function PrepPackView({ pack }: { pack: PrepPackDetail }) {
   const counts = new Map(pack.categorySummary.map((item) => [item.category, item.totalQuestions]));
+  const hasGenerationRecovery = pack.generationHealth === "partial_failure";
   const nextStep =
     pack.analytics.notStartedQuestions > 0
       ? "Open the highest-importance category and move a few questions into Learning."
@@ -41,6 +42,40 @@ export function PrepPackView({ pack }: { pack: PrepPackDetail }) {
           <Metric label="Preparation Days" value={String(pack.preparationDays)} />
           <Metric label="Difficulty" value={pack.difficulty} />
           <Metric label="Status" value={pack.status} />
+        </div>
+        <div className="mt-6 grid gap-4 lg:grid-cols-[0.7fr_1.3fr]">
+          <div className="rounded-[1.5rem] bg-white/75 p-5 ring-1 ring-black/5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ocean">Trust & Accuracy</p>
+            <div className="mt-3 space-y-2 text-sm leading-7 text-ink/75">
+              <p>Questions come from the reusable bank plus fresh AI generation, then your feedback tunes future quality.</p>
+              <p>Mark anything inaccurate, remove weak questions, and export only after a final review in your own words.</p>
+              {hasGenerationRecovery ? (
+                <p className="rounded-2xl bg-amber-50 px-4 py-3 text-amber-900">
+                  Some categories needed recovery or partial fallback content. Review those sections a bit more carefully.
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <div className="rounded-[1.5rem] bg-white/75 p-5 ring-1 ring-black/5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ocean">Source Context Preview</p>
+            <p className="mt-3 text-sm leading-7 text-ink/75">
+              This prep pack is tuned using your role, job description preview, experience level, and selected skills.
+            </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div className="rounded-2xl bg-sand p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink/50">Experience</p>
+                <p className="mt-2 text-sm font-semibold text-ink">{pack.experienceLevel}</p>
+              </div>
+              <div className="rounded-2xl bg-sand p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink/50">Known Skills</p>
+                <p className="mt-2 text-sm font-semibold text-ink">{pack.analysis.primarySkills.concat(pack.analysis.secondarySkills).slice(0, 6).join(", ") || "Not specified"}</p>
+              </div>
+            </div>
+            <div className="mt-4 rounded-2xl bg-sand p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink/50">JD Preview Used For Analysis</p>
+              <p className="mt-2 text-sm leading-7 text-ink/75">{pack.jobDescriptionPreview || "No job description preview available."}</p>
+            </div>
+          </div>
         </div>
         <div className="mt-6 rounded-[1.5rem] bg-white/70 p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">

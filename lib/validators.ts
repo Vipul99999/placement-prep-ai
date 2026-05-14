@@ -4,7 +4,13 @@ import type { PrepInput, PracticeStatus, QuestionFeedback, TargetDifficulty } fr
 const EXPERIENCE_LEVELS = new Set(["Fresher", "Intern", "1 Year", "2 Years"]);
 const DIFFICULTIES = new Set(["Beginner", "Intermediate", "Advanced", "Mixed"]);
 const PRACTICE_STATUSES = new Set<PracticeStatus>(["not_started", "learning", "mastered"]);
-const QUESTION_FEEDBACK = new Set<QuestionFeedback>(["helpful", "irrelevant", "too_easy", "too_repetitive"]);
+const QUESTION_FEEDBACK = new Set<QuestionFeedback>([
+  "helpful",
+  "irrelevant",
+  "too_easy",
+  "too_repetitive",
+  "inaccurate"
+]);
 
 export function validateEmail(email: string, label = "Email") {
   const value = email.toLowerCase().trim();
@@ -136,6 +142,7 @@ export function validateQuestionStateInput(input: {
   practiceStatus?: string;
   markReviewed?: boolean;
   feedback?: string;
+  hideQuestion?: boolean;
 }) {
   const result: {
     isBookmarked?: boolean;
@@ -143,6 +150,7 @@ export function validateQuestionStateInput(input: {
     practiceStatus?: PracticeStatus;
     markReviewed?: boolean;
     feedback?: QuestionFeedback;
+    hideQuestion?: boolean;
   } = {};
 
   if (typeof input.isBookmarked === "boolean") {
@@ -169,6 +177,10 @@ export function validateQuestionStateInput(input: {
       throw new Error("Invalid feedback value");
     }
     result.feedback = input.feedback as QuestionFeedback;
+  }
+
+  if (typeof input.hideQuestion === "boolean") {
+    result.hideQuestion = input.hideQuestion;
   }
 
   if (Object.keys(result).length === 0) {

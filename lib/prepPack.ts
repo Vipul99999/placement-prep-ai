@@ -262,6 +262,10 @@ async function runCategoryGeneration(args: {
         question: question.question,
         answerShort: question.answerShort,
         answerDetailed: "",
+        interviewerIntent: question.interviewerIntent || "",
+        answerOpening: question.answerOpening || "",
+        answerFramework: question.answerFramework ?? [],
+        revisionChecklist: question.revisionChecklist ?? [],
         example: question.example || "",
         followUps: question.followUps ?? [],
         commonMistakes: question.commonMistakes ?? [],
@@ -593,7 +597,8 @@ export async function getPrepPackQuestions(args: {
         {
           $match: {
             prepPackId,
-            category: args.category
+            category: args.category,
+            isHidden: { $ne: true }
           }
         },
         { $sort: { order: 1 } },
@@ -612,7 +617,8 @@ export async function getPrepPackQuestions(args: {
       .toArray(),
     db.collection("prepPackQuestions").countDocuments({
       prepPackId,
-      category: args.category
+      category: args.category,
+      isHidden: { $ne: true }
     })
   ]);
 
@@ -741,7 +747,7 @@ export async function getMockInterviewQuestions(prepPackId: string, userId: stri
   const rows = await db
     .collection("prepPackQuestions")
     .aggregate([
-      { $match: { prepPackId: new ObjectId(prepPackId) } },
+      { $match: { prepPackId: new ObjectId(prepPackId), isHidden: { $ne: true } } },
       { $sample: { size: count } },
       {
         $lookup: {
@@ -805,6 +811,7 @@ export async function updatePrepPackQuestionState(args: {
   practiceStatus?: "not_started" | "learning" | "mastered";
   markReviewed?: boolean;
   feedback?: QuestionFeedback;
+  hideQuestion?: boolean;
 }) {
   assertValidObjectId(args.prepPackId, "prep pack id");
   assertValidObjectId(args.joinId, "question state id");
@@ -827,6 +834,12 @@ export async function updatePrepPackQuestionState(args: {
   }
   if (args.practiceStatus) {
     update.practiceStatus = args.practiceStatus;
+  }
+  if (typeof args.hideQuestion === "boolean") {
+    update.isHidden = args.hideQuestion;
+    if (args.hideQuestion) {
+      update.isBookmarked = false;
+    }
   }
 
   const existing = await db.collection("prepPackQuestions").findOne<{
@@ -885,6 +898,22 @@ export async function updatePrepPackQuestionState(args: {
     });
   }
 
+  if (typeof args.hideQuestion === "boolean") {
+    const visibleQuestionCount = await db.collection("prepPackQuestions").countDocuments({
+      prepPackId: new ObjectId(args.prepPackId),
+      isHidden: { $ne: true }
+    });
+    await db.collection("prepPacks").updateOne(
+      { _id: new ObjectId(args.prepPackId) },
+      {
+        $set: {
+          totalQuestions: visibleQuestionCount,
+          updatedAt: new Date()
+        }
+      }
+    );
+  }
+
   invalidateUserPrepCaches(args.userId, args.prepPackId);
 }
 
@@ -913,7 +942,7 @@ export async function getPrepPackAnalytics(prepPackId: string, userId: string): 
         dueReviews: number;
         activeStreaks: number;
       }>([
-        { $match: { prepPackId: new ObjectId(prepPackId) } },
+        { $match: { prepPackId: new ObjectId(prepPackId), isHidden: { $ne: true } } },
         {
           $group: {
             _id: "$category",
@@ -975,7 +1004,7 @@ export async function getDashboardAnalytics(userId: string) {
             mastered: number;
             dueReviews: number;
           }>([
-            { $match: { prepPackId: { $in: prepPackIds } } },
+            { $match: { prepPackId: { $in: prepPackIds }, isHidden: { $ne: true } } },
             {
               $group: {
                 _id: "$prepPackId",

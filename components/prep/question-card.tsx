@@ -11,12 +11,14 @@ export function QuestionCard({
   item,
   prepPackId,
   companyName,
-  role
+  role,
+  onRemoved
 }: {
   item: QuestionPageItem;
   prepPackId: string;
   companyName: string;
   role: string;
+  onRemoved?: (joinId: string) => void;
 }) {
   const { showToast } = useToast();
   const [detailedAnswer, setDetailedAnswer] = useState(item.question.answerDetailed ?? "");
@@ -27,13 +29,22 @@ export function QuestionCard({
   const [practiceStatus, setPracticeStatus] = useState<PracticeStatus>(item.practiceStatus);
   const [userNotes, setUserNotes] = useState(item.userNotes);
   const [feedback, setFeedback] = useState(item.lastFeedback || "");
+  const qualityScore = item.question.qualityScore ?? 0.72;
+  const trustTone = qualityScore >= 0.8 ? "strong" : qualityScore >= 0.6 ? "steady" : "review";
+  const trustLabel =
+    trustTone === "strong"
+      ? "High fit for prep"
+      : trustTone === "steady"
+        ? "Good fit, still review"
+        : "Needs your review";
 
   async function persistState(next: {
     isBookmarked?: boolean;
     practiceStatus?: PracticeStatus;
     userNotes?: string;
     markReviewed?: boolean;
-    feedback?: "helpful" | "irrelevant" | "too_easy" | "too_repetitive";
+    feedback?: "helpful" | "irrelevant" | "too_easy" | "too_repetitive" | "inaccurate";
+    hideQuestion?: boolean;
   }) {
     setSavingState(true);
     try {
@@ -115,6 +126,7 @@ export function QuestionCard({
         <div className="flex flex-wrap items-center gap-2">
           <Badge>{item.question.difficulty}</Badge>
           <Badge tone="warm">{item.question.subtopic}</Badge>
+          <Badge tone={trustTone}>{trustLabel}</Badge>
           {item.question.tags.slice(0, 3).map((tag) => (
             <Badge key={tag} tone="soft">
               {tag}
@@ -154,6 +166,28 @@ export function QuestionCard({
           >
             {isBookmarked ? "Bookmarked" : "Bookmark"}
           </button>
+          <button
+            onClick={async () => {
+              try {
+                await persistState({ hideQuestion: true });
+                showToast({
+                  title: "Question removed from this pack",
+                  description: "Generate more if you want a stronger replacement.",
+                  tone: "success"
+                });
+                onRemoved?.(item.joinId);
+              } catch {
+                showToast({
+                  title: "Could not remove question",
+                  description: "Please try again.",
+                  tone: "error"
+                });
+              }
+            }}
+            className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-red-700"
+          >
+            Remove
+          </button>
         </div>
       </div>
       <h3 className="mt-4 text-xl font-bold text-ink">{item.question.question}</h3>
@@ -162,10 +196,27 @@ export function QuestionCard({
         <span className="rounded-full bg-black/5 px-3 py-1 font-semibold">
           Review streak {item.reviewStreak ?? 0}
         </span>
+        <span className="rounded-full bg-black/5 px-3 py-1 font-semibold">Fit score {Math.round(qualityScore * 100)}%</span>
       </div>
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <Panel title="Short Answer" value={item.question.answerShort} />
         <Panel title="Example" value={item.question.example || "No example generated yet."} />
+      </div>
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <Panel
+          title="What The Interviewer Is Checking"
+          value={
+            item.question.interviewerIntent ||
+            "The interviewer is checking whether you understand the concept clearly and can explain it in practical terms."
+          }
+        />
+        <Panel
+          title="Strong Opening Line"
+          value={
+            item.question.answerOpening ||
+            "Start with one clear sentence that defines the concept and why it matters in real work."
+          }
+        />
       </div>
       <div className="mt-4 rounded-2xl bg-sand p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -185,6 +236,34 @@ export function QuestionCard({
         <p className="mt-3 whitespace-pre-line text-sm leading-7 text-ink/75">
           {detailedAnswer || "Generate this only when needed to keep storage lighter and the MVP fast."}
         </p>
+      </div>
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <ListPanel
+          title="Best Answer Structure"
+          items={
+            item.question.answerFramework?.length
+              ? item.question.answerFramework
+              : [
+                  "Define the concept clearly.",
+                  "Connect it to real implementation or project work.",
+                  "Mention one tradeoff or common issue.",
+                  "Close with one practical example."
+                ]
+          }
+        />
+        <ListPanel
+          title="Revision Checklist"
+          items={
+            item.question.revisionChecklist?.length
+              ? item.question.revisionChecklist
+              : [
+                  "Know the basic definition.",
+                  "Prepare one project example.",
+                  "Revise common mistakes.",
+                  "Be ready for follow-up questions."
+                ]
+          }
+        />
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <ListPanel title="Follow-ups" items={item.question.followUps} />
@@ -261,6 +340,7 @@ export function QuestionCard({
           <div className="mt-3 flex flex-wrap gap-2">
             {[
               ["helpful", "Helpful"],
+              ["inaccurate", "Inaccurate"],
               ["irrelevant", "Irrelevant"],
               ["too_easy", "Too Easy"],
               ["too_repetitive", "Too Repetitive"]
@@ -273,7 +353,9 @@ export function QuestionCard({
                   const previous = feedback;
                   setFeedback(next);
                   try {
-                    await persistState({ feedback: next as "helpful" | "irrelevant" | "too_easy" | "too_repetitive" });
+                    await persistState({
+                      feedback: next as "helpful" | "irrelevant" | "too_easy" | "too_repetitive" | "inaccurate"
+                    });
                     showToast({
                       title: "Feedback saved",
                       description: `${label} feedback will improve future question quality.`,
@@ -299,11 +381,32 @@ export function QuestionCard({
             ))}
           </div>
           <p className="mt-3 text-xs text-ink/55">
-            Use this when a question feels off-target, too basic, or repeated too often.
+            Mark anything inaccurate or weak so future recommendations stay trustworthy.
           </p>
         </div>
         <div className="rounded-2xl bg-sand p-5">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-ocean">Your Notes</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {[
+              "Definition",
+              "Use case",
+              "Tradeoff",
+              "Project example",
+              "Follow-up risk"
+            ].map((hint) => (
+              <button
+                key={hint}
+                type="button"
+                onClick={() => {
+                  const prefix = userNotes.trim() ? "\n" : "";
+                  setUserNotes((current) => `${current}${prefix}${hint}: `);
+                }}
+                className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-ink/70 ring-1 ring-black/10"
+              >
+                + {hint}
+              </button>
+            ))}
+          </div>
           <textarea
             rows={4}
             value={userNotes}
@@ -361,7 +464,7 @@ function Badge({
   tone = "default"
 }: {
   children: ReactNode;
-  tone?: "default" | "warm" | "soft";
+  tone?: "default" | "warm" | "soft" | "strong" | "steady" | "review";
 }) {
   return (
     <span
@@ -369,7 +472,10 @@ function Badge({
         "rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]",
         tone === "default" && "bg-ink text-white",
         tone === "warm" && "bg-accent/15 text-accent",
-        tone === "soft" && "bg-black/5 text-ink/70"
+        tone === "soft" && "bg-black/5 text-ink/70",
+        tone === "strong" && "bg-emerald-100 text-emerald-800",
+        tone === "steady" && "bg-sky-100 text-sky-800",
+        tone === "review" && "bg-amber-100 text-amber-800"
       )}
     >
       {children}

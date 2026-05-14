@@ -20,6 +20,10 @@ interface QuestionInsertInput {
   question: string;
   answerShort: string;
   answerDetailed?: string;
+  interviewerIntent?: string;
+  answerOpening?: string;
+  answerFramework?: string[];
+  revisionChecklist?: string[];
   example?: string;
   followUps: string[];
   commonMistakes: string[];
@@ -163,7 +167,8 @@ export async function linkQuestionsToPrepPack(
   const prepObjectId = typeof prepPackId === "string" ? new ObjectId(prepPackId) : prepPackId;
   const existingCount = await db.collection("prepPackQuestions").countDocuments({
     prepPackId: prepObjectId,
-    category
+    category,
+    isHidden: { $ne: true }
   });
   const now = new Date();
 
@@ -175,6 +180,10 @@ export async function linkQuestionsToPrepPack(
           questionId
         },
         {
+          $set: {
+            isHidden: false,
+            updatedAt: now
+          },
           $setOnInsert: {
             prepPackId: prepObjectId,
             questionId,
@@ -237,6 +246,8 @@ export async function recordQuestionFeedback(input: {
   const qualityDelta =
     input.feedback === "helpful"
       ? 0.05
+      : input.feedback === "inaccurate"
+        ? -0.2
       : input.feedback === "irrelevant"
         ? -0.12
         : input.feedback === "too_repetitive"
@@ -284,7 +295,7 @@ export async function getCategoryQuestionCounts(prepPackId: string | ObjectId) {
   const rows = await db
     .collection("prepPackQuestions")
     .aggregate<{ _id: string; totalQuestions: number }>([
-      { $match: { prepPackId: prepObjectId } },
+      { $match: { prepPackId: prepObjectId, isHidden: { $ne: true } } },
       { $group: { _id: "$category", totalQuestions: { $sum: 1 } } },
       { $sort: { _id: 1 } }
     ])

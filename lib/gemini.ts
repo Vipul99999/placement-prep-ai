@@ -161,6 +161,10 @@ export async function generateQuestionsForCategory(args: {
       subtopic: string;
       answerShort: string;
       answerDetailed: string;
+      interviewerIntent: string;
+      answerOpening: string;
+      answerFramework: string[];
+      revisionChecklist: string[];
       example: string;
       followUps: string[];
       commonMistakes: string[];

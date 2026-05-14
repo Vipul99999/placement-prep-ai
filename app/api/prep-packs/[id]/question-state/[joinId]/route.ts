@@ -27,7 +27,8 @@ export async function PATCH(
       userNotes?: string;
       practiceStatus?: "not_started" | "learning" | "mastered";
       markReviewed?: boolean;
-      feedback?: "helpful" | "irrelevant" | "too_easy" | "too_repetitive";
+      feedback?: "helpful" | "irrelevant" | "too_easy" | "too_repetitive" | "inaccurate";
+      hideQuestion?: boolean;
     }>(request);
     const body = validateQuestionStateInput(payload);
 

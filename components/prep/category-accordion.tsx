@@ -31,7 +31,7 @@ export function CategoryAccordion({
   const [page, setPage] = useState(1);
   const [data, setData] = useState<QuestionsResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const currentCount = category.totalQuestions ?? totalQuestions ?? 0;
+  const currentCount = data?.total ?? category.totalQuestions ?? totalQuestions ?? 0;
 
   async function loadQuestions(nextPage = 1) {
     setLoading(true);
@@ -118,6 +118,21 @@ export function CategoryAccordion({
                   prepPackId={prepPackId}
                   companyName={companyName}
                   role={role}
+                  onRemoved={(joinId) => {
+                    setData((current) =>
+                      current
+                        ? (() => {
+                            const nextTotal = Math.max(0, current.total - 1);
+                            return {
+                              ...current,
+                              items: current.items.filter((question) => question.joinId !== joinId),
+                              total: nextTotal,
+                              totalPages: Math.max(1, Math.ceil(nextTotal / current.limit))
+                            };
+                          })()
+                        : current
+                    );
+                  }}
                 />
               ))}
             </div>

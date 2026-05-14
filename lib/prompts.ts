@@ -74,7 +74,18 @@ ${args.resumeText || "Not provided"}
 </untrusted_resume_context>
 
 Generate ${args.count} unique likely interview questions for this category.
-Each item must include a short answer, a detailed answer, a realistic example, 2-4 follow-ups, 2-4 common mistakes, a subtopic, and tags.
+Each item must include:
+- a short answer suitable for a 20-40 second reply
+- a detailed answer suitable for a 1-2 minute explanation
+- interviewerIntent: what the interviewer is really checking
+- answerOpening: a strong first line the student can actually say out loud
+- answerFramework: 3-5 concise speaking points in the best order
+- revisionChecklist: 3-5 practical points the student should revise before interview day
+- a realistic example from student projects, internships, debugging, teamwork, delivery, or implementation work
+- 2-4 follow-ups
+- 2-4 common mistakes
+- a subtopic and tags
+Make the answer sound like something a strong fresher or intern can realistically explain in an Indian placement interview.
 Use category-specific substance instead of generic filler.
 `.trim();
 }

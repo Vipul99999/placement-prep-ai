@@ -119,6 +119,10 @@ export function sanitizeQuestionPayload(input: {
     subtopic: string;
     answerShort: string;
     answerDetailed: string;
+    interviewerIntent: string;
+    answerOpening: string;
+    answerFramework: string[];
+    revisionChecklist: string[];
     example: string;
     followUps: string[];
     commonMistakes: string[];
@@ -134,6 +138,16 @@ export function sanitizeQuestionPayload(input: {
         subtopic: sanitizeGeneratedText(question.subtopic, 60),
         answerShort: sanitizeGeneratedText(question.answerShort, 260),
         answerDetailed: sanitizeGeneratedText(question.answerDetailed, 900),
+        interviewerIntent: sanitizeGeneratedText(question.interviewerIntent, 220),
+        answerOpening: sanitizeGeneratedText(question.answerOpening, 220),
+        answerFramework: question.answerFramework
+          .map((item) => sanitizeGeneratedText(item, 160))
+          .filter(Boolean)
+          .slice(0, 5),
+        revisionChecklist: question.revisionChecklist
+          .map((item) => sanitizeGeneratedText(item, 140))
+          .filter(Boolean)
+          .slice(0, 5),
         example: sanitizeGeneratedText(question.example, 260),
         followUps: question.followUps.map((item) => sanitizeGeneratedText(item, 160)).filter(Boolean).slice(0, 4),
         commonMistakes: question.commonMistakes
@@ -147,6 +161,10 @@ export function sanitizeQuestionPayload(input: {
           question.question &&
           question.subtopic &&
           question.answerShort &&
+          question.interviewerIntent &&
+          question.answerOpening &&
+          question.answerFramework.length > 0 &&
+          question.revisionChecklist.length > 0 &&
           question.followUps.length > 0 &&
           question.commonMistakes.length > 0
       )
@@ -198,6 +216,20 @@ export function createFallbackQuestions(args: {
       subtopic: category,
       answerShort: `${category} matters because it affects how you design, build, debug, and explain your work clearly.`,
       answerDetailed: `Start with the basic definition of ${category}, explain where it appears in practical work for a ${args.role} role, mention one tradeoff, and add a small real-world example.`,
+      interviewerIntent: `The interviewer wants to check whether you understand ${category} clearly and can connect it to practical work.`,
+      answerOpening: `A good way to start is: ${category} is important because it directly affects how I build and explain reliable work in this role.`,
+      answerFramework: [
+        `Define ${category} in one clear sentence.`,
+        `Explain where it appears in real ${args.role} work.`,
+        `Mention one tradeoff, edge case, or debugging challenge.`,
+        `Close with a simple example from project or internship work.`
+      ],
+      revisionChecklist: [
+        `Know the definition and why it matters.`,
+        `Prepare one project example using ${category}.`,
+        `Be ready for one comparison or tradeoff question.`,
+        `Avoid only theory; connect it to implementation.`
+      ],
       example: `Share a small example from a project where ${category} improved code quality, performance, reliability, or developer experience.`,
       followUps: [
         `When would you choose one approach over another in ${category}?`,
